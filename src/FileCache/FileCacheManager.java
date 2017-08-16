@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
  *     
  * 项目名称：FileCache    
  * 类名称：FileManager    
- * 类描述：    
+ * 类描述：    缓存数据在内存，超过默认值则写入文件缓存
  * 创建人：jinyu    
  * 创建时间：2017年8月12日 上午11:53:01    
  * 修改人：jinyu    
@@ -44,12 +44,12 @@ public class FileCacheManager<K,V> {
    private byte keyType=-1;
    private int keylen=-1;
    private int vallen=-1;
-   private volatile long sumLen=0;
-   private int cacheSize=50*1024*1024;//100M  
+   private volatile long sumLen=0;//统计内存的数据量
+   private int cacheSize=50*1024*1024;//50M ，内存缓存中超过该值则准备写入
    private volatile boolean isRuning=false;
-   private long fileName=System.currentTimeMillis();
-   private final long dataFileSize=1*1024*1024*1024;
-   private final int curSize=10*1024*1024;//10M;
+   private long fileName=System.currentTimeMillis();//当前数据文件名称
+   private final long dataFileSize=1*1024*1024*1024;//切换数据文件
+   private final int curSize=10*1024*1024;//10M;每次写入文件的数据量
    private String dataDir="sessiondata";//文件目录，数据库
    FileWrite sw=new FileWrite();//写数据文件
    private volatile boolean  isInit=false;//是否初始化
@@ -68,20 +68,33 @@ public class FileCacheManager<K,V> {
    private volatile boolean isupdate=false;//判断是否正在更新全局索引
    private volatile boolean isWrite=false;//正在写入全局文件
    private FileDataDelete fileDB=new FileDataDelete();//清除DB文件
+  
+   /**
+    * 设置清除旧数据
+    * 默认清除
+    */
    public  void setClearOld(boolean old)
    {
        isClearOld=old;
    }
+   
+   /**
+    * 设置缓存时间
+    */
    public void setCacheTime(long cacheTime)
    {
        oldTime=cacheTime;
    }
+   
+   /**
+    * 设置缓存最大数据量
+    */
    public void setCacheNum(long size)
    {
        maxKVSize=size;
    }
    
-   /*
+   /**
     * 初始化
     */
    public void initDB()
@@ -122,6 +135,10 @@ public class FileCacheManager<K,V> {
        }  
        path.delete();  
    }  
+  
+  /*
+   * 设置存储位置
+   */
    public void setDir(String dir)
    {
        dataDir=dir;
@@ -130,6 +147,7 @@ public class FileCacheManager<K,V> {
    
    /*
     * 启动清理数据
+    * 删除索引文件
     */
    private void startDataDelete()
    {
@@ -320,6 +338,7 @@ public class FileCacheManager<K,V> {
                    
                   }
               }
+                @SuppressWarnings("resource")
                 @Override
                 public void run() {
                     try {
@@ -415,7 +434,8 @@ public class FileCacheManager<K,V> {
                       System.out.println("最新时间:"+minTime);
                       try
                       {
-                       BufferedReader in= new BufferedReader(new FileReader(dataDir+"/"+indexFile));
+                     
+                    BufferedReader in= new BufferedReader(new FileReader(dataDir+"/"+indexFile));
                        in.skip(skipLen);
                        String info="";
                       while(true)
@@ -665,6 +685,7 @@ public class FileCacheManager<K,V> {
            }
            isRuning=false;
            startDataDelete();//添加后启动清理
+           System.gc();
         }
            
        });
@@ -778,6 +799,10 @@ private V convertToValue(byte[]data)
               break;
       }
    }
+   
+   /*
+    * 判断类型
+    */
    private void checkValType(V val)
    {
        if(valType!=-1)
@@ -817,6 +842,9 @@ private V convertToValue(byte[]data)
       
        
    }
+   /*
+    * 判断类型
+    */
    private void checkKeyType(K key)
    {
        if(keyType!=-1)
@@ -856,6 +884,10 @@ private V convertToValue(byte[]data)
       
        
    }
+   
+   /*
+    * 保存key,value
+    */
 public void put(K key,V val)
 {
     cache.put(key, val);
@@ -1069,6 +1101,10 @@ private FileIndex<K> searchIndex(K key)
     }
     return index;  
 }
+
+/*
+ * 删除key
+ */
 public void delete(K key)
 {
     if(cache.remove(key)!=null)
@@ -1077,6 +1113,10 @@ public void delete(K key)
        //数据可能还没有写入
     }
 }
+
+/*
+ * 清理所有缓存
+ */
 public void clear()
 {
     queue.clear();
@@ -1087,6 +1127,10 @@ public void clear()
     deleteAllFilesOfDir(f);
     f.mkdir();
 }
+
+/*
+ * 删除多个key
+ */
 public void deleteByKeys(ArrayList<K> list)
 {
     StringBuffer buf=new StringBuffer();

@@ -56,7 +56,7 @@ public class FileManager<K,V> {
    private boolean isClearOld=true;
    private String indexFile="DBIndex.index";
    private long oldTime=10*60*1000;//ª∫¥Ê ±º‰
-   private long maxKVSize=Long.MAX_VALUE;
+  // private long maxKVSize=Long.MAX_VALUE;
    
    public FileManager()
    {
@@ -138,19 +138,19 @@ public class FileManager<K,V> {
         
        }
      
-  private String updateFile(StringBuffer buf)
-       {
-           String  csvFile=dataDir+"/"+System.currentTimeMillis()+".csv";
-           FileWriter fw;
-        try {
-            fw = new FileWriter(csvFile,true);
-            fw.write(buf.toString());
-            fw.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return csvFile;
-       }
+//  private String updateFile(StringBuffer buf)
+//       {
+//           String  csvFile=dataDir+"/"+System.currentTimeMillis()+".csv";
+//           FileWriter fw;
+//        try {
+//            fw = new FileWriter(csvFile,true);
+//            fw.write(buf.toString());
+//            fw.close();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//        return csvFile;
+     //  }
   private void updateIndexFile(String file)
   {
       try {
@@ -165,92 +165,92 @@ public class FileManager<K,V> {
     }
   }
   
-  private void updateIndex1(ArrayList<FileIndex<K>> indexs)
-       {
-           FileDBManager obj=  FileDBManager.getObj();
-           StringBuffer buf=new StringBuffer();
-           for(int i=0;i<indexs.size();i++)
-           {
-               FileIndex<K> index=indexs.get(i);
-               String key=convertToKey(index.key);
-               buf.append("('"+key+"','"+index.fileid+"',"+index.position+","+index.len+"),");
-           }
-           //
-          if(buf.length()>0)
-          {
-            String data=buf.toString();
-            data=data.substring(0, data.length()-1);
-            String sql="insert into globleTmp(key,fileid,position,len) VALUES"+data;
-            obj.exeSql(sql);
-            //
-            sql="select  table.* from globleIndex right join  globleTmp on globleTmp.key=globleIndex.key";
-            String tmpsql=sql.replaceFirst("table", "globleIndex");
-            //CALL CSVWRITE('d:/test.csv', 'SELECT * FROM t');
-            String deleteSql="insert into globleDelete "+tmpsql+" where globleIndex.key is not null";
-            String  csvFile=dataDir+"/"+System.currentTimeMillis()+".csv";
-            deleteSql="CALL CSVWRITE('"+csvFile+"'"+", '"+tmpsql+" where globleIndex.key is not null"+"')";
-            obj.exeSql(deleteSql);
-            //INSERT INTO TEST ( SELECT  * FROM  CSVREAD('d:/test.csv ')) ;
-            obj.exeSql("insert into globleDelete (SELECT  * FROM  CSVREAD('"+csvFile+"'"+"))");
-            tmpsql=sql.replaceFirst("table", "globleTmp");
-            String sqlInsert="insert into globleIndex "+tmpsql+" where globleIndex.key is null";
-            sqlInsert="CALL CSVWRITE('"+csvFile+"'"+", '"+tmpsql+" where globleIndex.key is  null"+"')";
-            obj.exeSql(sqlInsert);
-            obj.exeSql("insert into globleIndex (SELECT  * FROM  CSVREAD('"+csvFile+"'"+"))");
-            //
-            sql="TRUNCATE TABLE globleTmp";
-            obj.exeSql(sql);
-        
-          }
-          //
-          for(int i=0;i<indexs.size();i++)
-          {
-              FileIndex<K> index=indexs.get(i);
-             // dataindex.remove(index.key);
-              cache.remove(index.key);
-          }
-       }
-      
- private void updateIndex2(ArrayList<FileIndex<K>> indexs)
-       {
-           FileDBManager obj=  FileDBManager.getObj();
-           StringBuffer buf=new StringBuffer();
-           long curID=System.currentTimeMillis();
-           String title="\"KEY\",\"FILEID\",\"POSITION\",\"LEN\",\"ID\",\"TMPFILE\"";
-           buf.append(title+"\r\n");
-           String csvFileID=System.currentTimeMillis()+".csv";
-           for(int i=0;i<indexs.size();i++)
-           {
-               FileIndex<K> index=indexs.get(i);
-               String key=convertToKey(index.key);
-               buf.append("\""+key+"\",");
-               buf.append("\""+index.fileid+"\",");
-               buf.append("\""+index.position+"\",");
-               buf.append("\""+index.len+"\",");
-               buf.append("\""+curID+"\",");
-               buf.append("\""+csvFileID+"\"");
-               buf.append("\r\n");
-              
-           }
-           //
-          if(buf.length()>0)
-          {
-          // String csvFile=updateFile(buf);
-           updateFile(buf,csvFileID);
-           String  csvFile=dataDir+"/"+csvFileID;
-           obj.exeSql("insert into globleIndex(SELECT  * FROM  CSVREAD('"+csvFile+"'"+"))");
-           //
-         //  File f=new File(csvFile);
-        //   f.deleteOnExit();
-          }
-          //
-          for(int i=0;i<indexs.size();i++)
-          {
-              FileIndex<K> index=indexs.get(i);
-             // dataindex.remove(index.key);
-              cache.remove(index.key);
-          }
-       }
+//  private void updateIndex1(ArrayList<FileIndex<K>> indexs)
+//       {
+//           FileDBManager obj=  FileDBManager.getObj();
+//           StringBuffer buf=new StringBuffer();
+//           for(int i=0;i<indexs.size();i++)
+//           {
+//               FileIndex<K> index=indexs.get(i);
+//               String key=convertToKey(index.key);
+//               buf.append("('"+key+"','"+index.fileid+"',"+index.position+","+index.len+"),");
+//           }
+//           //
+//          if(buf.length()>0)
+//          {
+//            String data=buf.toString();
+//            data=data.substring(0, data.length()-1);
+//            String sql="insert into globleTmp(key,fileid,position,len) VALUES"+data;
+//            obj.exeSql(sql);
+//            //
+//            sql="select  table.* from globleIndex right join  globleTmp on globleTmp.key=globleIndex.key";
+//            String tmpsql=sql.replaceFirst("table", "globleIndex");
+//            //CALL CSVWRITE('d:/test.csv', 'SELECT * FROM t');
+//            String deleteSql="insert into globleDelete "+tmpsql+" where globleIndex.key is not null";
+//            String  csvFile=dataDir+"/"+System.currentTimeMillis()+".csv";
+//            deleteSql="CALL CSVWRITE('"+csvFile+"'"+", '"+tmpsql+" where globleIndex.key is not null"+"')";
+//            obj.exeSql(deleteSql);
+//            //INSERT INTO TEST ( SELECT  * FROM  CSVREAD('d:/test.csv ')) ;
+//            obj.exeSql("insert into globleDelete (SELECT  * FROM  CSVREAD('"+csvFile+"'"+"))");
+//            tmpsql=sql.replaceFirst("table", "globleTmp");
+//            String sqlInsert="insert into globleIndex "+tmpsql+" where globleIndex.key is null";
+//            sqlInsert="CALL CSVWRITE('"+csvFile+"'"+", '"+tmpsql+" where globleIndex.key is  null"+"')";
+//            obj.exeSql(sqlInsert);
+//            obj.exeSql("insert into globleIndex (SELECT  * FROM  CSVREAD('"+csvFile+"'"+"))");
+//            //
+//            sql="TRUNCATE TABLE globleTmp";
+//            obj.exeSql(sql);
+//        
+//          }
+//          //
+//          for(int i=0;i<indexs.size();i++)
+//          {
+//              FileIndex<K> index=indexs.get(i);
+//             // dataindex.remove(index.key);
+//              cache.remove(index.key);
+//          }
+//       }
+//      
+// private void updateIndex2(ArrayList<FileIndex<K>> indexs)
+//       {
+//           FileDBManager obj=  FileDBManager.getObj();
+//           StringBuffer buf=new StringBuffer();
+//           long curID=System.currentTimeMillis();
+//           String title="\"KEY\",\"FILEID\",\"POSITION\",\"LEN\",\"ID\",\"TMPFILE\"";
+//           buf.append(title+"\r\n");
+//           String csvFileID=System.currentTimeMillis()+".csv";
+//           for(int i=0;i<indexs.size();i++)
+//           {
+//               FileIndex<K> index=indexs.get(i);
+//               String key=convertToKey(index.key);
+//               buf.append("\""+key+"\",");
+//               buf.append("\""+index.fileid+"\",");
+//               buf.append("\""+index.position+"\",");
+//               buf.append("\""+index.len+"\",");
+//               buf.append("\""+curID+"\",");
+//               buf.append("\""+csvFileID+"\"");
+//               buf.append("\r\n");
+//              
+//           }
+//           //
+//          if(buf.length()>0)
+//          {
+//          // String csvFile=updateFile(buf);
+//           updateFile(buf,csvFileID);
+//           String  csvFile=dataDir+"/"+csvFileID;
+//           obj.exeSql("insert into globleIndex(SELECT  * FROM  CSVREAD('"+csvFile+"'"+"))");
+//           //
+//         //  File f=new File(csvFile);
+//        //   f.deleteOnExit();
+//          }
+//          //
+//          for(int i=0;i<indexs.size();i++)
+//          {
+//              FileIndex<K> index=indexs.get(i);
+//             // dataindex.remove(index.key);
+//              cache.remove(index.key);
+//          }
+//       }
      
  private void updateIndex(ArrayList<FileIndex<K>> indexs)
        {
