@@ -10,11 +10,16 @@
 package FileCache;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.sql.ResultSet;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
@@ -49,6 +54,10 @@ public class FileManager<K,V> {
    FileWrite sw=new FileWrite();
    private volatile boolean  isInit=false;
    private boolean isClearOld=true;
+   private String indexFile="DBIndex.index";
+   private long oldTime=10*60*1000;//缓存时间
+   private long maxKVSize=Long.MAX_VALUE;
+   
    public FileManager()
    {
       
@@ -60,35 +69,51 @@ public class FileManager<K,V> {
        {
            return;
        }
+       File f=new File(dataDir);
+       if(isClearOld) {
+       deleteAllFilesOfDir(f);}
+       f.mkdir();
        isInit=true;
-       String sql="create table IF NOT EXISTS indexFile(Key varchar,FileID varchar,position BIGINT , len int,ID BIGINT,TMPFILE varchar)";
-       //创建索引表
-       FileDBManager.setDir(dataDir);
-       FileDBManager obj=  FileDBManager.getObj();
-       obj.exeSql(sql);
-        String  csql=sql.replaceFirst("indexFile", "globleIndex");
-       obj.exeSql(csql);
-       csql=sql.replaceFirst("indexFile", "globleDelete");
-       obj.exeSql(csql);
-       csql=sql.replaceFirst("indexFile", "globleTmp");
-       obj.exeSql(csql);
-        String tmpsql="create table globleKeys(Key varchar)";
-       obj.exeSql(tmpsql);
-//       sql="CREATE INDEX IF NOT EXISTS globle_KEY ON globleIndex(Key)";
+//       String sql="create table IF NOT EXISTS indexFile(Key varchar,FileID varchar,position BIGINT , len int,ID BIGINT,TMPFILE varchar)";
+//       //创建索引表
+//       FileDBManager.setDir(dataDir);
+//       FileDBManager obj=  FileDBManager.getObj();
 //       obj.exeSql(sql);
-//       sql="CREATE INDEX IF NOT EXISTS globle_ID ON globleIndex(ID)";
-//       obj.exeSql(sql);
-       if(isClearOld)
-       {
-           sql="TRUNCATE TABLE globleIndex";
-           obj.exeSql(sql);
-       }
+//        String  csql=sql.replaceFirst("indexFile", "globleIndex");
+//       obj.exeSql(csql);
+//       csql=sql.replaceFirst("indexFile", "globleDelete");
+//       obj.exeSql(csql);
+//       csql=sql.replaceFirst("indexFile", "globleTmp");
+//       obj.exeSql(csql);
+//        String tmpsql="create table globleKeys(Key varchar)";
+//       obj.exeSql(tmpsql);
+////       sql="CREATE INDEX IF NOT EXISTS globle_KEY ON globleIndex(Key)";
+////       obj.exeSql(sql);
+////       sql="CREATE INDEX IF NOT EXISTS globle_ID ON globleIndex(ID)";
+////       obj.exeSql(sql);
+//       if(isClearOld)
+//       {
+//           sql="TRUNCATE TABLE globleIndex";
+//           obj.exeSql(sql);
+//       }
    }
-   
+  void deleteAllFilesOfDir(File path) {  
+       if (!path.exists())  
+           return;  
+       if (path.isFile()) {  
+           path.delete();  
+           return;  
+       }  
+       File[] files = path.listFiles();  
+       for (int i = 0; i < files.length; i++) {  
+           deleteAllFilesOfDir(files[i]);  
+       }  
+       path.delete();  
+   }  
    public void setDir(String dir)
    {
        dataDir=dir;
-       FileModifyDBManager.dataDir=dir;
+     
    }
    private void startThread()
    {
@@ -98,7 +123,8 @@ public class FileManager<K,V> {
        }
        isRuning=true;
        Thread file=new Thread(new Runnable() {
-       private void updateFile(StringBuffer buf,String csvFileID)
+      
+ private void updateFile(StringBuffer buf,String csvFileID)
        {
            String  csvFile=dataDir+"/"+csvFileID;
            FileWriter fw;
@@ -111,7 +137,8 @@ public class FileManager<K,V> {
         }
         
        }
-       private String updateFile(StringBuffer buf)
+     
+  private String updateFile(StringBuffer buf)
        {
            String  csvFile=dataDir+"/"+System.currentTimeMillis()+".csv";
            FileWriter fw;
@@ -124,7 +151,21 @@ public class FileManager<K,V> {
         }
         return csvFile;
        }
-       private void updateIndex1(ArrayList<FileIndex<K>> indexs)
+  private void updateIndexFile(String file)
+  {
+      try {
+          
+            long id=System.currentTimeMillis();
+            FileWriter findex=new FileWriter(dataDir+"/"+indexFile,true);
+            String data=file+","+id+System.getProperty("line.separator");;
+            findex.write(data);
+            findex.close();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+  }
+  
+  private void updateIndex1(ArrayList<FileIndex<K>> indexs)
        {
            FileDBManager obj=  FileDBManager.getObj();
            StringBuffer buf=new StringBuffer();
@@ -169,7 +210,8 @@ public class FileManager<K,V> {
               cache.remove(index.key);
           }
        }
-       private void updateIndex(ArrayList<FileIndex<K>> indexs)
+      
+ private void updateIndex2(ArrayList<FileIndex<K>> indexs)
        {
            FileDBManager obj=  FileDBManager.getObj();
            StringBuffer buf=new StringBuffer();
@@ -200,6 +242,39 @@ public class FileManager<K,V> {
            //
          //  File f=new File(csvFile);
         //   f.deleteOnExit();
+          }
+          //
+          for(int i=0;i<indexs.size();i++)
+          {
+              FileIndex<K> index=indexs.get(i);
+             // dataindex.remove(index.key);
+              cache.remove(index.key);
+          }
+       }
+     
+ private void updateIndex(ArrayList<FileIndex<K>> indexs)
+       {
+          // FileDBManager obj=  FileDBManager.getObj();
+           StringBuffer buf=new StringBuffer();
+           long curID=System.currentTimeMillis();
+           String title="KEY,FILEID,POSITION,LEN,ID";
+           buf.append(title+"\r\n");
+           for(int i=0;i<indexs.size();i++)
+           {
+               FileIndex<K> index=indexs.get(i);
+               String key=convertToKey(index.key);
+               buf.append(key+",");
+               buf.append(index.fileid+",");
+               buf.append(index.position+",");
+               buf.append(index.len+",");
+               buf.append(curID+",");
+               buf.append(System.getProperty("line.separator"));
+           }
+           //
+          if(buf.length()>0)
+          {
+             updateFile(buf,curID+".csv");
+             updateIndexFile(curID+".csv");
           }
           //
           for(int i=0;i<indexs.size();i++)
@@ -478,7 +553,6 @@ private V convertToValue(byte[]data)
 public void put(K key,V val)
 {
     cache.put(key, val);
-    queue.add(key);
     checkValType(val);
     checkKeyType(key);
     sumLen(key,val);
@@ -489,7 +563,7 @@ public void put(K key,V val)
         startThread();
     }
 }
-public V get(K key)
+public V get1(K key)
 {
    V val=  cache.get(key);
    if(val==null)
@@ -516,6 +590,207 @@ public V get(K key)
             
    }
 return val;
+}
+
+/*
+ * 获取值
+ */
+public V get(K key)
+{
+   V val=  cache.get(key);
+   if(val==null)
+   {
+    
+      // String strKey=convertToKey(key);
+       FileIndex<K> index= searchIndex(key);
+       if(index!=null)
+       {
+           FileRead frd=new FileRead();
+           frd.path=dataDir+"/"+index.fileid;
+           byte[]data=  frd.readFile(index.position, index.len);
+           val= convertToValue(data);
+       }
+            
+            
+   }
+return val;
+}
+
+/*
+ * 读取数据索引文件
+ */
+private String[] readDataIndex(String filePath)
+{
+    File file = new File(filePath);
+    Long filelength = file.length(); // 获取文件长度
+    byte[] filecontent = new byte[filelength.intValue()];
+    try
+    {
+        FileInputStream in = new FileInputStream(file);
+        in.read(filecontent);
+        in.close();
+    } catch (FileNotFoundException e)
+    {
+        e.printStackTrace();
+    } catch (IOException e)
+    {
+        e.printStackTrace();
+    }
+    
+    String[] fileContentArr = new String(filecontent).split("\r\n");
+    
+    return fileContentArr;// 返回文件内容,默认编码
+}
+
+/*
+ * 检索key-value具体索引
+ */
+private FileIndex<K> searchQueue(Deque<String> queue,String strKey,Byte falge)
+{
+    FileIndex<K> index=null;
+    String indexData = null;
+    while(true)
+    {
+        if(index!=null)
+        {
+            break;
+        }
+        if(queue.isEmpty())
+        {
+            break;
+        }
+        indexData= queue.poll();
+        if(indexData==null)
+        {
+            continue;
+        }
+      String[] fileinfo=indexData.split(",");
+    if(fileinfo.length==2)
+    {
+        //
+        String fileid=fileinfo[0];
+        String time=fileinfo[1];//文件写入时间
+        if(oldTime>0)
+        {
+            //判断时间
+          if(System.currentTimeMillis()-Long.valueOf(time)>oldTime)
+          {
+              //后面的不用处理了;
+              falge=1;
+              return null;
+          }
+        }
+     String dataIndex= dataDir+"/"+fileid;
+     String[] datafileIndex=readDataIndex(dataIndex);
+     for(int i=0;i<datafileIndex.length;i++)
+     {
+         if(datafileIndex[i].indexOf(strKey)!=-1)
+         {
+             //找到了;
+               index = new FileIndex<K>();
+              String[] datainfo=datafileIndex[i].split(",");
+              index.fileid=datainfo[1];
+              index.position=Long.valueOf(datainfo[2]);
+              index.len=Integer.valueOf(datainfo[3]);
+              break; 
+             
+         }
+     }
+     
+    }
+    //
+    }
+    return index;
+}
+/*
+ * 检索数据索引
+ * 1000个索引文件处理1次
+ */
+private FileIndex<K> searchIndex(K key)
+{
+    Deque<String> queue=new ArrayDeque <String>();
+    FileIndex<K> index=null;
+    String charset="utf-8";
+    String strKey=this.convertToKey(key);
+    //
+   //读取索引文件
+    RandomAccessFile rf = null;  
+    String filename=dataDir+"/"+indexFile;
+    int num=0;
+    try {  
+        rf = new RandomAccessFile(filename, "r");  
+        long len = rf.length();  
+        long start = rf.getFilePointer();  
+        long nextend = start + len - 1;  
+        String line; 
+       
+        rf.seek(nextend);  
+        int c = -1;  
+        int bytelen=-1;
+        while (nextend > start) {
+            c = rf.read();  
+            if (c == '\n' || c == '\r') {  
+                line = rf.readLine();  
+                nextend--;  
+                if(line!=null)
+                {
+                //
+                    if(bytelen==-1)
+                    {
+                       if(line.length()==line.getBytes().length)
+                       {
+                           bytelen=1;
+                       }
+                       else
+                       {
+                           bytelen=2;
+                       }
+                    }
+                queue.push(line);
+                num++;
+                if(num>1000)
+                {
+                    //读取1000行进行处理；
+                    Byte flage=-1;
+                    index= searchQueue(queue,strKey,flage);
+                    if(index!=null)
+                    {
+                        return index;
+                    }
+                    else if(flage==1)
+                    {
+                        return null;
+                    }
+                }
+                nextend=nextend-line.length()*bytelen+1;
+                }
+                //
+               
+            }  
+            nextend--;  
+            rf.seek(nextend);  
+            if (nextend == 0) {// 当文件指针退至文件开始处，输出第一行  
+                System.out.println(new String(rf.readLine().getBytes(  
+                        "ISO-8859-1"), charset));  
+            }  
+        }  
+    } catch (IOException e) {  
+        e.printStackTrace();  
+    } finally {  
+        try {  
+            if (rf != null)  
+                rf.close();  
+        } catch (IOException e) {  
+            e.printStackTrace();  
+        }  
+    }
+    //
+    if(index==null&&!queue.isEmpty())
+    {
+        Byte flage = -1;
+        index= searchQueue(queue,strKey,flage);
+    }
+    return index;  
 }
 public void delete(K key)
 {

@@ -25,12 +25,11 @@ import java.util.ArrayList;
  *     
  */
 public class FileCache<K,V> {
-    FileManager<K,V> manager=new FileManager<K,V>();
+    FileCacheManager<K,V> manager=new FileCacheManager<K,V>();
     public void init(String  dir)
     {
         manager.setDir(dir);
         manager.initDB();
-        
     }
 public void addCache(K key,V val)
 {

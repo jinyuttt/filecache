@@ -34,7 +34,7 @@ import java.nio.channels.FileChannel;
 public class FileRead {
     String path="";
     private int blockSize=100*1024*102;//100M字节
-    private long fileMax=2*1024*1024*1024;//2G字节
+    private long fileMax=1*1024*1024*1024;//2G字节
 @SuppressWarnings("resource")
 /*
  * 读取小文件
@@ -101,6 +101,8 @@ public byte[] read(long position,int len)
     MappedByteBuffer inputBuf=null;
     try {
         inputBuf=new RandomAccessFile(fin,"r").getChannel().map(FileChannel.MapMode.READ_ONLY, position,finLen);
+        inputBuf.get(data);
+        inputBuf=null;
     } catch (FileNotFoundException e) {
         // TODO Auto-generated catch block
         e.printStackTrace();
@@ -108,8 +110,7 @@ public byte[] read(long position,int len)
         // TODO Auto-generated catch block
         e.printStackTrace();
     }
-    inputBuf.get(data);
-    inputBuf=null;
+  
     System.gc();
     return data;
 }
